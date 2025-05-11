@@ -24,7 +24,7 @@ const GenerateRecipesOutputSchema = z.object({
     z.object({
       title: z.string().describe('The title of the recipe.'),
       description: z.string().describe('A brief description of the recipe.'),
-      link: z.string().describe('A link to the full recipe.'),
+      steps: z.array(z.string()).describe('An array of strings, where each string is a step in the recipe preparation.'),
     })
   ).
   describe('An array of suggested recipes.'),
@@ -43,9 +43,12 @@ const prompt = ai.definePrompt({
 
 Ingredients: {{{ingredients}}}
 
-Recipes should include a title, a brief description, and a link to the full recipe.
+For each recipe, provide:
+- A title.
+- A brief description.
+- An ordered list of steps (as an array of strings) to prepare the recipe.
 
-Output in JSON format.`, 
+Output in JSON format.`,
 });
 
 const generateRecipesFlow = ai.defineFlow(

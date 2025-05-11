@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
-import { ChefHat, Loader2, Sparkles, AlertTriangle } from 'lucide-react';
-import Link from 'next/link';
+import { ChefHat, Loader2, Sparkles, AlertTriangle, BookOpen } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -26,17 +25,26 @@ function RecipeCard({ recipe }: { recipe: Recipe }) {
   return (
     <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col h-full bg-card rounded-lg overflow-hidden">
       <CardHeader className="pb-3">
-        <CardTitle className="text-xl text-primary">{recipe.title}</CardTitle>
+        <CardTitle className="text-xl text-primary flex items-center gap-2">
+          <BookOpen className="h-6 w-6" /> 
+          {recipe.title}
+        </CardTitle>
       </CardHeader>
-      <CardContent className="flex-grow pb-3">
-        <p className="text-sm text-muted-foreground line-clamp-4">{recipe.description}</p>
+      <CardContent className="flex-grow pb-4">
+        <p className="text-sm text-muted-foreground mb-4">{recipe.description}</p>
+        {recipe.steps && recipe.steps.length > 0 && (
+          <div>
+            <h4 className="text-md font-semibold text-primary mb-2">Steps:</h4>
+            <ol className="list-decimal list-inside text-sm text-muted-foreground space-y-1.5 pl-2">
+              {recipe.steps.map((step, index) => (
+                <li key={index}>{step}</li>
+              ))}
+            </ol>
+          </div>
+        )}
       </CardContent>
-      <CardFooter>
-        <Button asChild variant="link" className="text-accent p-0 h-auto hover:text-accent/80">
-          <Link href={recipe.link} target="_blank" rel="noopener noreferrer">
-            View Full Recipe &rarr;
-          </Link>
-        </Button>
+      <CardFooter className="pt-2">
+        {/* Footer can be used for additional info like prep time or servings if available in future */}
       </CardFooter>
     </Card>
   );
@@ -141,7 +149,7 @@ export default function RecipeForm() {
       {recipes.length > 0 && (
         <div className="space-y-6">
           <h2 className="text-2xl md:text-3xl font-semibold text-center text-primary">Your Recipe Suggestions</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-6"> {/* Adjusted grid for potentially longer cards */}
             {recipes.map((recipe, index) => (
               <RecipeCard key={recipe.title + index} recipe={recipe} />
             ))}

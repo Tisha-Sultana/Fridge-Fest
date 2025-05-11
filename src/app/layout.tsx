@@ -14,8 +14,34 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={GeistSans.variable}>
-      <body className="font-sans antialiased">
+    <html lang="en" className={GeistSans.variable} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                function getInitialTheme() {
+                  try {
+                    const storedTheme = localStorage.getItem('theme');
+                    if (storedTheme) return storedTheme;
+                    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                  } catch (e) {
+                    // localStorage or matchMedia might not be available
+                    return 'light';
+                  }
+                }
+                const theme = getInitialTheme();
+                if (theme === 'dark') {
+                  document.documentElement.classList.add('dark');
+                } else {
+                  document.documentElement.classList.remove('dark');
+                }
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body className="font-sans antialiased bg-background text-foreground">
         {children}
         <Toaster />
       </body>

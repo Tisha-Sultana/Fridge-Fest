@@ -24,7 +24,7 @@ const GenerateRecipesOutputSchema = z.object({
     z.object({
       title: z.string().describe('The title of the recipe.'),
       description: z.string().describe('A brief description of the recipe.'),
-      link: z.string().url().describe('A link to the full recipe.'),
+      link: z.string().describe('A link to the full recipe.'),
     })
   ).
   describe('An array of suggested recipes.'),
@@ -59,3 +59,4 @@ const generateRecipesFlow = ai.defineFlow(
     return output!;
   }
 );
+

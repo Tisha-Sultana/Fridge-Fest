@@ -1,17 +1,20 @@
 "use client";
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
-import { ChefHat, Loader2, Sparkles, AlertTriangle, BookOpen } from 'lucide-react';
+import { ChefHat, Loader2, Sparkles, AlertTriangle, BookOpen, ImageIcon } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from '@/components/ui/skeleton';
 import { generateRecipes, type GenerateRecipesOutput } from '@/ai/flows/generate-recipes';
+import { generateRecipeImage } from '@/ai/flows/generate-recipe-image';
 
 const formSchema = z.object({
   ingredients: z.string().min(3, { message: 'Please list at least one ingredient (e.g., "eggs").' })
@@ -19,11 +22,47 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
-type Recipe = GenerateRecipesOutput['recipes'][0];
 
-function RecipeCard({ recipe }: { recipe: Recipe }) {
+type RecipeTextDetails = GenerateRecipesOutput['recipes'][0];
+type RecipeUIData = RecipeTextDetails & {
+  id: string; // Add an id for stable key and updates
+  imageDataUri?: string | null; // null: loading, string: loaded, undefined: not yet attempted / error
+  imageError?: boolean;
+};
+
+
+function RecipeCard({ recipe }: { recipe: RecipeUIData }) {
   return (
     <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col h-full bg-card rounded-lg overflow-hidden">
+      <div className="relative w-full aspect-[16/9] bg-muted group-data-[collapsible=icon]:hidden">
+        {recipe.imageDataUri === null && !recipe.imageError && ( // Explicitly loading
+          <Skeleton className="h-full w-full rounded-t-lg" />
+        )}
+        {typeof recipe.imageDataUri === 'string' && !recipe.imageError && ( // Image loaded successfully
+          <Image
+            src={recipe.imageDataUri}
+            alt={`Image of ${recipe.title}`}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover rounded-t-lg transition-transform duration-300 group-hover:scale-105"
+          />
+        )}
+        {recipe.imageError && ( // Error occurred
+          <Image
+            src={`https://picsum.photos/seed/${encodeURIComponent(recipe.title)}/400/300`}
+            alt="Error placeholder image for recipe"
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover rounded-t-lg"
+            data-ai-hint="food plate"
+          />
+        )}
+        {recipe.imageDataUri === undefined && !recipe.imageError && recipe.imageDataUri !== null && ( // Initial state or general fallback
+          <div className="w-full h-full flex items-center justify-center bg-secondary/20 rounded-t-lg">
+            <ImageIcon className="h-16 w-16 text-muted-foreground/50" />
+          </div>
+        )}
+      </div>
       <CardHeader className="pb-3">
         <CardTitle className="text-xl text-primary flex items-center gap-2">
           <BookOpen className="h-6 w-6" /> 
@@ -44,14 +83,14 @@ function RecipeCard({ recipe }: { recipe: Recipe }) {
         )}
       </CardContent>
       <CardFooter className="pt-2">
-        {/* Footer can be used for additional info like prep time or servings if available in future */}
+        {/* Footer can be used for additional info */}
       </CardFooter>
     </Card>
   );
 }
 
 export default function RecipeForm() {
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [recipes, setRecipes] = useState<RecipeUIData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [noResults, setNoResults] = useState(false);
@@ -72,7 +111,36 @@ export default function RecipeForm() {
     try {
       const result = await generateRecipes({ ingredients: data.ingredients });
       if (result.recipes && result.recipes.length > 0) {
-        setRecipes(result.recipes);
+        const recipesWithImageState: RecipeUIData[] = result.recipes.map((recipe, index) => ({
+          ...recipe,
+          id: `${recipe.title}-${index}`, // Simple unique ID
+          imageDataUri: null, // Mark as loading initially
+          imageError: false,
+        }));
+        setRecipes(recipesWithImageState);
+
+        // Trigger image generation for each recipe
+        recipesWithImageState.forEach(async (recipe) => {
+          try {
+            const imageResult = await generateRecipeImage({
+              recipeTitle: recipe.title,
+              recipeDescription: recipe.description,
+            });
+            setRecipes(prevRecipes =>
+              prevRecipes.map(r =>
+                r.id === recipe.id ? { ...r, imageDataUri: imageResult.imageDataUri, imageError: false } : r
+              )
+            );
+          } catch (imgErr) {
+            console.error(`Failed to generate image for ${recipe.title}:`, imgErr);
+            setRecipes(prevRecipes =>
+              prevRecipes.map(r =>
+                r.id === recipe.id ? { ...r, imageDataUri: undefined, imageError: true } : r
+              )
+            );
+          }
+        });
+
       } else {
         setNoResults(true);
       }
@@ -113,7 +181,7 @@ export default function RecipeForm() {
               )}
             </div>
             <Button type="submit" disabled={isLoading} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-lg py-3 rounded-md font-semibold transition-colors duration-200">
-              {isLoading ? (
+              {isLoading && !recipes.length ? ( // Show main loading only if no recipes yet
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   Discovering Recipes...
@@ -149,9 +217,9 @@ export default function RecipeForm() {
       {recipes.length > 0 && (
         <div className="space-y-6">
           <h2 className="text-2xl md:text-3xl font-semibold text-center text-primary">Your Recipe Suggestions</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-6"> {/* Adjusted grid for potentially longer cards */}
-            {recipes.map((recipe, index) => (
-              <RecipeCard key={recipe.title + index} recipe={recipe} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {recipes.map((recipe) => (
+              <RecipeCard key={recipe.id} recipe={recipe} />
             ))}
           </div>
         </div>
@@ -159,3 +227,4 @@ export default function RecipeForm() {
     </div>
   );
 }
+

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -5,16 +6,20 @@ import Image from 'next/image';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
-import { ChefHat, Loader2, Sparkles, AlertTriangle, BookOpen, ImageIcon } from 'lucide-react';
+import { ChefHat, Loader2, Sparkles, AlertTriangle, BookOpen, ImageIcon, HelpCircle, Lightbulb } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from '@/components/ui/skeleton';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { generateRecipes, type GenerateRecipesOutput } from '@/ai/flows/generate-recipes';
 import { generateRecipeImage } from '@/ai/flows/generate-recipe-image';
+import { suggestAlternateIngredient, type SuggestAlternateIngredientOutput } from '@/ai/flows/suggest-alternate-ingredient';
+
 
 const formSchema = z.object({
   ingredients: z.string().min(3, { message: 'Please list at least one ingredient (e.g., "eggs").' })
@@ -25,20 +30,50 @@ type FormValues = z.infer<typeof formSchema>;
 
 type RecipeTextDetails = GenerateRecipesOutput['recipes'][0];
 type RecipeUIData = RecipeTextDetails & {
-  id: string; // Add an id for stable key and updates
-  imageDataUri?: string | null; // null: loading, string: loaded, undefined: not yet attempted / error
+  id: string; 
+  imageDataUri?: string | null; 
   imageError?: boolean;
 };
 
 
 function RecipeCard({ recipe }: { recipe: RecipeUIData }) {
+  const [ingredientToReplace, setIngredientToReplace] = useState('');
+  const [alternateSuggestion, setAlternateSuggestion] = useState<SuggestAlternateIngredientOutput | null>(null);
+  const [isSuggestingAlternate, setIsSuggestingAlternate] = useState(false);
+  const [alternateSuggestionError, setAlternateSuggestionError] = useState<string | null>(null);
+
+  const handleSuggestAlternate = async () => {
+    if (!ingredientToReplace.trim()) {
+      setAlternateSuggestionError("Please enter an ingredient to find a swap for.");
+      return;
+    }
+    setIsSuggestingAlternate(true);
+    setAlternateSuggestion(null);
+    setAlternateSuggestionError(null);
+
+    try {
+      const result = await suggestAlternateIngredient({
+        recipeTitle: recipe.title,
+        recipeDescription: recipe.description,
+        recipeSteps: recipe.steps,
+        ingredientToReplace: ingredientToReplace.trim(),
+      });
+      setAlternateSuggestion(result);
+    } catch (err) {
+      console.error(`Error suggesting alternate ingredient for ${recipe.title}:`, err);
+      setAlternateSuggestionError("Sorry, couldn't fetch a suggestion right now. Please try again.");
+    } finally {
+      setIsSuggestingAlternate(false);
+    }
+  };
+
   return (
     <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col h-full bg-card rounded-lg overflow-hidden">
-      <div className="relative w-full aspect-[16/9] bg-muted group-data-[collapsible=icon]:hidden">
-        {recipe.imageDataUri === null && !recipe.imageError && ( // Explicitly loading
+      <div className="relative w-full aspect-[16/9] bg-muted">
+        {recipe.imageDataUri === null && !recipe.imageError && (
           <Skeleton className="h-full w-full rounded-t-lg" />
         )}
-        {typeof recipe.imageDataUri === 'string' && !recipe.imageError && ( // Image loaded successfully
+        {typeof recipe.imageDataUri === 'string' && !recipe.imageError && (
           <Image
             src={recipe.imageDataUri}
             alt={`Image of ${recipe.title}`}
@@ -47,7 +82,7 @@ function RecipeCard({ recipe }: { recipe: RecipeUIData }) {
             className="object-cover rounded-t-lg transition-transform duration-300 group-hover:scale-105"
           />
         )}
-        {recipe.imageError && ( // Error occurred
+        {recipe.imageError && (
           <Image
             src={`https://picsum.photos/seed/${encodeURIComponent(recipe.title)}/400/300`}
             alt="Error placeholder image for recipe"
@@ -57,7 +92,7 @@ function RecipeCard({ recipe }: { recipe: RecipeUIData }) {
             data-ai-hint="food plate"
           />
         )}
-        {recipe.imageDataUri === undefined && !recipe.imageError && recipe.imageDataUri !== null && ( // Initial state or general fallback
+        {recipe.imageDataUri === undefined && !recipe.imageError && recipe.imageDataUri !== null && (
           <div className="w-full h-full flex items-center justify-center bg-secondary/20 rounded-t-lg">
             <ImageIcon className="h-16 w-16 text-muted-foreground/50" />
           </div>
@@ -72,7 +107,7 @@ function RecipeCard({ recipe }: { recipe: RecipeUIData }) {
       <CardContent className="flex-grow pb-4">
         <p className="text-sm text-muted-foreground mb-4">{recipe.description}</p>
         {recipe.steps && recipe.steps.length > 0 && (
-          <div>
+          <div className="mb-4">
             <h4 className="text-md font-semibold text-primary mb-2">Steps:</h4>
             <ol className="list-decimal list-inside text-sm text-muted-foreground space-y-1.5 pl-2">
               {recipe.steps.map((step, index) => (
@@ -81,10 +116,64 @@ function RecipeCard({ recipe }: { recipe: RecipeUIData }) {
             </ol>
           </div>
         )}
+
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value={`alternate-ingredient-${recipe.id}`}>
+            <AccordionTrigger className="text-md font-semibold text-primary hover:no-underline">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="h-5 w-5" />
+                Need an Ingredient Swap?
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pt-3">
+              <div className="space-y-3">
+                <Label htmlFor={`alternate-ingredient-input-${recipe.id}`} className="text-sm font-medium text-muted-foreground">
+                  Which ingredient are you missing?
+                </Label>
+                <div className="flex gap-2 items-center">
+                  <Input
+                    id={`alternate-ingredient-input-${recipe.id}`}
+                    value={ingredientToReplace}
+                    onChange={(e) => setIngredientToReplace(e.target.value)}
+                    placeholder="e.g., 'cumin powder'"
+                    disabled={isSuggestingAlternate}
+                    className="flex-grow text-sm"
+                  />
+                  <Button onClick={handleSuggestAlternate} disabled={isSuggestingAlternate} size="sm" className="whitespace-nowrap">
+                    {isSuggestingAlternate ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Find Swap"
+                    )}
+                  </Button>
+                </div>
+                
+                {alternateSuggestionError && (
+                  <Alert variant="destructive" className="mt-2 text-xs">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle className="text-sm">Suggestion Error</AlertTitle>
+                    <AlertDescription>{alternateSuggestionError}</AlertDescription>
+                  </Alert>
+                )}
+                {alternateSuggestion && (
+                  <Card className="mt-3 p-4 bg-secondary/30 shadow-none">
+                    <CardContent className="p-0 text-sm space-y-1.5">
+                       <div className="flex items-center gap-2 font-semibold">
+                         <Lightbulb className="h-4 w-4 text-accent"/> 
+                         <span>Suggestion:</span>
+                       </div>
+                      <p><strong>Original:</strong> {alternateSuggestion.originalIngredient}</p>
+                      <p><strong>Try Using:</strong> <span className="font-medium text-primary">{alternateSuggestion.suggestedAlternative}</span></p>
+                      {alternateSuggestion.notes && <p className="mt-1 italic text-muted-foreground"><strong>Note:</strong> {alternateSuggestion.notes}</p>}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+
       </CardContent>
-      <CardFooter className="pt-2">
-        {/* Footer can be used for additional info */}
-      </CardFooter>
     </Card>
   );
 }
@@ -113,13 +202,12 @@ export default function RecipeForm() {
       if (result.recipes && result.recipes.length > 0) {
         const recipesWithImageState: RecipeUIData[] = result.recipes.map((recipe, index) => ({
           ...recipe,
-          id: `${recipe.title}-${index}`, // Simple unique ID
-          imageDataUri: null, // Mark as loading initially
+          id: `${recipe.title.replace(/\s+/g, '-')}-${index}`, // More robust ID
+          imageDataUri: null, 
           imageError: false,
         }));
         setRecipes(recipesWithImageState);
 
-        // Trigger image generation for each recipe
         recipesWithImageState.forEach(async (recipe) => {
           try {
             const imageResult = await generateRecipeImage({
@@ -181,7 +269,7 @@ export default function RecipeForm() {
               )}
             </div>
             <Button type="submit" disabled={isLoading} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-lg py-3 rounded-md font-semibold transition-colors duration-200">
-              {isLoading && !recipes.length ? ( // Show main loading only if no recipes yet
+              {isLoading && !recipes.length ? ( 
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   Discovering Recipes...
@@ -227,4 +315,3 @@ export default function RecipeForm() {
     </div>
   );
 }
-

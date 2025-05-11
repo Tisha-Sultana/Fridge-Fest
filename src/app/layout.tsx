@@ -1,12 +1,10 @@
 import type { Metadata } from 'next';
-import { GeistSans } from 'geist/font/sans'; // Correct import for Geist Sans from its own package
+import { GeistSans } from 'geist/font/sans';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
-const geistSans = GeistSans({
-  subsets: ['latin'],
-  variable: '--font-geist-sans', // Define CSS variable for Tailwind
-});
+// The GeistSans object imported from 'geist/font/sans' is already configured.
+// It's not a function to be called. We use its .variable property directly.
 
 export const metadata: Metadata = {
   title: 'Fridge Feast',
@@ -19,8 +17,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={geistSans.variable}>
-      <body className="font-sans antialiased"> {/* Use font-sans which will pick up --font-geist-sans if configured in tailwind.config.ts */}
+    <html lang="en" className={GeistSans.variable}> {/* Use GeistSans.variable directly */}
+      <body className="font-sans antialiased"> {/* font-sans uses the CSS variable defined by GeistSans.variable */}
         {children}
         <Toaster />
       </body>

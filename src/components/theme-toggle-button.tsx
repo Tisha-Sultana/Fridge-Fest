@@ -3,21 +3,17 @@
 
 import { Moon, Sun } from "lucide-react";
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 export function ThemeToggleButton() {
   const [currentTheme, setCurrentTheme] = useState<"light" | "dark">("light");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // This effect runs once on the client after the component mounts.
-    // It correctly sets the initial theme based on the <html> class (set by inline script)
-    // and marks the component as mounted.
     setCurrentTheme(document.documentElement.classList.contains("dark") ? "dark" : "light");
     setMounted(true);
 
-    // Optional: Observe class changes on <html> if other parts of the app might change it.
-    // For this app, it's likely only this button changes it.
     const observer = new MutationObserver(() => {
       const newTheme = document.documentElement.classList.contains("dark") ? "dark" : "light";
       setCurrentTheme(newTheme);
@@ -27,8 +23,8 @@ export function ThemeToggleButton() {
     return () => observer.disconnect();
   }, []);
 
-  const toggleTheme = () => {
-    const newTheme = currentTheme === "light" ? "dark" : "light";
+  const toggleTheme = (isDark: boolean) => {
+    const newTheme = isDark ? "dark" : "light";
     if (newTheme === "dark") {
       document.documentElement.classList.add("dark");
       localStorage.setItem("theme", "dark");
@@ -36,32 +32,31 @@ export function ThemeToggleButton() {
       document.documentElement.classList.remove("dark");
       localStorage.setItem("theme", "light");
     }
-    setCurrentTheme(newTheme); // Update local state for icon change
+    setCurrentTheme(newTheme);
   };
 
   if (!mounted) {
-    // Render a placeholder or disabled button to avoid hydration mismatch for the icon.
-    // The button structure itself is static, so it's mainly the icon that could mismatch.
+    // Render a placeholder to avoid hydration mismatch
     return (
-      <Button variant="outline" size="icon" className="rounded-full" disabled aria-label="Toggle theme">
+      <div className="flex items-center space-x-2 h-10">
         <Sun className="h-[1.2rem] w-[1.2rem]" />
-      </Button>
+        <Switch id="theme-switch-placeholder" disabled aria-label="Toggle theme" />
+        <Moon className="h-[1.2rem] w-[1.2rem]" />
+      </div>
     );
   }
 
   return (
-    <Button
-      variant="outline"
-      size="icon"
-      onClick={toggleTheme}
-      aria-label={currentTheme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-      className="rounded-full"
-    >
-      {currentTheme === "light" ? (
-        <Moon className="h-[1.2rem] w-[1.2rem]" />
-      ) : (
-        <Sun className="h-[1.2rem] w-[1.2rem]" />
-      )}
-    </Button>
+    <div className="flex items-center space-x-2">
+      <Sun className={`h-[1.2rem] w-[1.2rem] transition-colors ${currentTheme === 'light' ? 'text-accent' : 'text-muted-foreground'}`} />
+      <Switch
+        id="theme-switch"
+        checked={currentTheme === "dark"}
+        onCheckedChange={toggleTheme}
+        aria-label={currentTheme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+      />
+      <Moon className={`h-[1.2rem] w-[1.2rem] transition-colors ${currentTheme === 'dark' ? 'text-accent' : 'text-muted-foreground'}`} />
+    </div>
   );
 }
+

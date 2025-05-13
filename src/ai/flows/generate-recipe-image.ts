@@ -38,11 +38,16 @@ const generateRecipeImageFlow = ai.defineFlow(
     outputSchema: GenerateRecipeImageOutputSchema,
   },
   async ({ recipeTitle, recipeDescription }) => {
-    // Add fallbacks for title and description to ensure the prompt is valid
-    const safeRecipeTitle = recipeTitle?.trim() || "a delicious looking dish";
-    const safeRecipeDescription = recipeDescription?.trim() || "A beautifully prepared meal, ready to eat";
+    // Add fallbacks and sanitize title and description for the prompt
+    const titleForImage = (recipeTitle?.trim() || "a delicious looking dish")
+      .replace(/\n+/g, ' ') // Replace newlines with a space
+      .trim(); // Trim again in case of leading/trailing spaces from replacement
 
-    const promptString = `Generate a high-quality, appetizing, photorealistic image of the following cooked dish: ${safeRecipeTitle}. Description: ${safeRecipeDescription}. The dish should be well-lit and presented as if for a food blog.`;
+    const descriptionForImage = (recipeDescription?.trim() || "A beautifully prepared meal, ready to eat")
+      .replace(/\n+/g, ' ') // Replace newlines with a space
+      .trim(); // Trim again
+
+    const promptString = `Generate a high-quality, appetizing, photorealistic image of the following cooked dish: ${titleForImage}. Description: ${descriptionForImage}. The dish should be well-lit and presented as if for a food blog.`;
 
     const { media } = await ai.generate({
       model: 'googleai/gemini-2.0-flash-exp', // Specific model for image generation

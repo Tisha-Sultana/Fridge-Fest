@@ -38,7 +38,11 @@ const generateRecipeImageFlow = ai.defineFlow(
     outputSchema: GenerateRecipeImageOutputSchema,
   },
   async ({ recipeTitle, recipeDescription }) => {
-    const promptString = `Generate a high-quality, appetizing, photorealistic image of the following cooked dish: ${recipeTitle}. Description: ${recipeDescription}. The dish should be well-lit and presented as if for a food blog.`;
+    // Add fallbacks for title and description to ensure the prompt is valid
+    const safeRecipeTitle = recipeTitle?.trim() || "a delicious looking dish";
+    const safeRecipeDescription = recipeDescription?.trim() || "A beautifully prepared meal, ready to eat";
+
+    const promptString = `Generate a high-quality, appetizing, photorealistic image of the following cooked dish: ${safeRecipeTitle}. Description: ${safeRecipeDescription}. The dish should be well-lit and presented as if for a food blog.`;
 
     const { media } = await ai.generate({
       model: 'googleai/gemini-2.0-flash-exp', // Specific model for image generation
@@ -55,3 +59,4 @@ const generateRecipeImageFlow = ai.defineFlow(
     return { imageDataUri: media.url };
   }
 );
+

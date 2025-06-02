@@ -1,3 +1,4 @@
+
 // src/ai/flows/generate-recipe-image.ts
 'use server';
 
@@ -43,11 +44,17 @@ const generateRecipeImageFlow = ai.defineFlow(
       .replace(/\n+/g, ' ') // Replace newlines with a space
       .trim(); // Trim again in case of leading/trailing spaces from replacement
 
-    const descriptionForImage = (recipeDescription?.trim() || "A beautifully prepared meal, ready to eat")
+    let descriptionForImage = (recipeDescription?.trim() || "A beautifully prepared meal, ready to eat")
       .replace(/\n+/g, ' ') // Replace newlines with a space
       .trim(); // Trim again
 
-    const promptString = `Generate a high-quality, appetizing, photorealistic image of the following cooked dish: ${titleForImage}. Description: ${descriptionForImage}. The dish should be well-lit and presented as if for a food blog.`;
+    // Truncate description if it's too long to prevent overly complex prompts
+    const MAX_DESC_LENGTH = 150;
+    if (descriptionForImage.length > MAX_DESC_LENGTH) {
+      descriptionForImage = descriptionForImage.substring(0, MAX_DESC_LENGTH - 3) + "...";
+    }
+
+    const promptString = `Generate an appetizing, photorealistic image of a cooked dish: ${titleForImage}. Details: ${descriptionForImage}. Style: well-lit, food blog photography.`;
 
     const { media } = await ai.generate({
       model: 'googleai/gemini-2.0-flash-exp', // Specific model for image generation

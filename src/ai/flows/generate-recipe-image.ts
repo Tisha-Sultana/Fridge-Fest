@@ -54,7 +54,7 @@ const generateRecipeImageFlow = ai.defineFlow(
       descriptionForImage = descriptionForImage.substring(0, MAX_DESC_LENGTH - 3) + "...";
     }
 
-    const promptString = `Generate an appetizing, photorealistic image of a cooked dish: ${titleForImage}. Details: ${descriptionForImage}. Style: well-lit, food blog photography.`;
+    const promptString = `Photorealistic image of a cooked dish: ${titleForImage}. ${descriptionForImage}. Food photography style, well-lit.`;
 
     const { media } = await ai.generate({
       model: 'googleai/gemini-2.0-flash-exp', // Specific model for image generation
